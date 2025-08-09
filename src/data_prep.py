@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.model_selection import StratifiedShuffleSplit, train_test_split
 from sklearn.metrics import mean_squared_error
+from sklearn.datasets import fetch_california_housing
 import joblib
 
 import mlflow
@@ -60,33 +61,43 @@ housing_tr, housing_labels = sprt_train_and_label_set(train_set)
 print("----------")
 
 
+
+##################
+data = fetch_california_housing()
+X_train, X_test, Y_train, Y_test = train_test_split(data.data, data.target, test_size=0.2, random_state=42)
+
+
+
+
 from sklearn.linear_model import LinearRegression
 # linear regression model for best fit
 
 with mlflow.start_run(run_name="Linear_regression"):
     # Log parameters
+    print(" Start ML flow")
     mlflow.log_param("learning_rate", 0.01)
     mlflow.log_param("epochs", 100)
 
 
     model = LinearRegression()
-    model.fit(housing_tr, housing_labels)
+    # model.fit(housing_tr, housing_labels)
+    model.fit(X_train, Y_train)
 
     # sample data to test from training set
-    sample_data = housing_tr.iloc[:5]
-    sample_labels = housing_labels.iloc[:5]
+    # sample_data = housing_tr.iloc[:5]
+    # sample_labels = housing_labels.iloc[:5]
 
     # predict the median_house_value
-    predicted_data = model.predict(sample_data)
-    print("Predicted Price:", predicted_data)
-    print("Actual Price:", list(sample_labels))
+    # predicted_data = model.predict(sample_data)
+    # print("Predicted Price:", predicted_data)
+    # print("Actual Price:", list(sample_labels))
 
     # save the model
     model_filename = "linear_regression.joblib"
     joblib.dump(model, model_filename)
 
     # Log metrics
-    mlflow.log_metric("r2_score", model.score(sample_data, sample_labels))
+    # mlflow.log_metric("r2_score", model.score(sample_data, sample_labels))
 
     # Log the model
     mlflow.sklearn.log_model(model, "linear_regression_model")
