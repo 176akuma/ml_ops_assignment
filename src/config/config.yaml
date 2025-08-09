@@ -1,0 +1,8 @@
+data:
+  output_csv: data/raw/california_housing.csv
+artifacts:
+  models_dir: artifacts/models
+  model_file: model.pkl
+mlflow:
+  experiment: mlops-assignment
+  tracking_uri: ./mlruns

@@ -11,7 +11,7 @@ import mlflow.sklearn
 mlflow.set_tracking_uri("http://localhost:5000")
 
 def fetch_housing_data():
-  return pd.read_csv("/home/Python_Ws/Mlops/mlops-pipeline/raw_data/housing.csv")
+  return pd.read_csv("/home/Python_Ws/Mlops/mlops-pipeline/raw/data/housing.csv")
 
 def set_income_category(housing_selected):
     # set income category based on median income
