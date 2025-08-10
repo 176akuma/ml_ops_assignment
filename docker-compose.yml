@@ -5,6 +5,16 @@ services:
     volumes:
       - ./artifacts:/app/artifacts
 
+  # MLflow UI reading the same ./mlruns
+  mlflow:
+    image: akuma176/mlops-app:latest
+    command: sh -c "mlflow ui --backend-store-uri ./mlruns --host 0.0.0.0 --port 5001"
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./mlruns:/app/mlruns
+    restart: unless-stopped
+
   prometheus:
     image: prom/prometheus:latest
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
