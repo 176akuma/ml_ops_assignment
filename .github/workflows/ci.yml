@@ -29,6 +29,8 @@ jobs:
       run: flake8 src tests
 
     - name: Test
+      env:
+        PYTHONPATH: .
       run: pytest -q
 
     - name: Build Docker image
