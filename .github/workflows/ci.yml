@@ -1,51 +1,84 @@
-name: CI/CD Pipeline
+name: CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
 
+env:
+  IMAGE_NAME: mlops-app
+
 jobs:
-  build-test-deploy:
+  ci-cd:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest flake8
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest flake8
 
-    - name: Lint
-      run: flake8 src tests
+      - name: Lint
+        run: flake8 src tests
 
-    - name: Test
-      env:
-        PYTHONPATH: .
-      run: pytest -q
+      # Train BEFORE tests so model exists
+      - name: Train (prepare model for tests)
+        run: |
+          python src/get_data.py
+          python src/train.py
 
-    - name: Build Docker image
-      run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/mlops-app:${{ github.sha }} .
+      - name: Test
+        env:
+          PYTHONPATH: .
+        run: pytest -q
 
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # --- Build & Push to Docker Hub ---
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-    - name: Push Docker image
-      run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/mlops-app:${{ github.sha }}
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Deploy locally (example)
-      run: |
-        docker run -d --name mlops-app -p 5000:5000 \
-        ${{ secrets.DOCKERHUB_USERNAME }}/mlops-app:${{ github.sha }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+
+      # --- "Deploy locally" as a smoke run on the runner ---
+      - name: Run container and health-check
+        run: |
+          docker run -d --name mlops-smoke -p 5000:5000 \
+            -v "${{ github.workspace }}/artifacts:/app/artifacts" \
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          # wait for app
+          for i in {1..30}; do
+            sleep 2
+            if curl -fsS http://localhost:5000/health >/dev/null; then
+              echo "Health OK"; break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "Health check failed"; docker logs mlops-smoke; exit 1
+            fi
+          done
+          docker rm -f mlops-smoke
