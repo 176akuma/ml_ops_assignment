@@ -1,3 +1,11 @@
-venv
-*.pyc
-*.pyo
+__pycache__/
+.venv/
+.mlruns/
+mlruns/
+artifacts/
+data/raw/*.csv
+*.dvc
+.dvc/
+pytest_cache/
+.dist/
+.DS_Store
