@@ -1,0 +1,26 @@
+services:
+  api:
+    image: akuma176/mlops-app:latest
+    ports: ["5000:5000"]
+    volumes:
+      - ./artifacts:/app/artifacts
+
+  prometheus:
+    image: prom/prometheus:latest
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+    ports: ["9090:9090"]
+    depends_on: [api]
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    ports: ["3000:3000"]
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on: [prometheus]
+
+volumes:
+  prom_data:
+  grafana_data:
